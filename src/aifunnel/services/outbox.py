@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -28,12 +28,17 @@ async def enqueue(
 
 async def claim_pending(session: AsyncSession, limit: int = 20) -> list[OutboxJob]:
     now = datetime.now(timezone.utc)
-    result = await session.execute(
+    base = (
         select(OutboxJob)
         .where(OutboxJob.status == "pending", OutboxJob.available_at <= now)
         .order_by(OutboxJob.id.asc())
         .limit(limit)
     )
+    try:
+        result = await session.execute(base.with_for_update(skip_locked=True))
+    except Exception:
+        # SQLite и часть драйверов не умеют SKIP LOCKED — обычный select
+        result = await session.execute(base)
     jobs = list(result.scalars().all())
     for job in jobs:
         job.status = "processing"
@@ -51,7 +56,10 @@ async def mark_done(session: AsyncSession, job: OutboxJob) -> None:
 async def mark_failed(session: AsyncSession, job: OutboxJob, error: str, *, retry: bool = True) -> None:
     job.last_error = error[:2000]
     if retry and job.attempts < 5:
+        # exponential backoff
+        delay = min(300, 2 ** job.attempts)
         job.status = "pending"
+        job.available_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
     else:
         job.status = "failed"
     await session.commit()
@@ -62,7 +70,7 @@ async def process_job(session: AsyncSession, job: OutboxJob) -> None:
     data = json.loads(job.payload)
     settings = get_settings()
     if job.kind == "notify_ready_lead":
-        await webhooks.post_webhook(settings, "lead.ready", data)
+        await webhooks.post_webhook(settings, "lead.ready", data, session=session)
         await mark_done(session, job)
         return
     await mark_failed(session, job, f"unknown kind: {job.kind}", retry=False)

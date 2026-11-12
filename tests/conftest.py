@@ -35,6 +35,7 @@ async def client(tmp_path: Path):
     from aifunnel import db as dbmod
     from aifunnel.ai.factory import reset_ai_singleton
     from aifunnel.api.deps import reset_limiters
+    from aifunnel.cache import funnel_id_cache, stats_cache
     from aifunnel.config import get_settings
     from aifunnel.services import admins as admin_service
     from aifunnel.services import funnels as funnel_service
@@ -44,6 +45,8 @@ async def client(tmp_path: Path):
     get_settings.cache_clear()
     reset_ai_singleton()
     reset_limiters()
+    stats_cache.invalidate()
+    funnel_id_cache.invalidate()
     dbmod.rebind_engine(os.environ["DATABASE_URL"])
     await dbmod.init_db()
     settings = get_settings()

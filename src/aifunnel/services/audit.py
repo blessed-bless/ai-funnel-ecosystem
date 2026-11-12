@@ -14,6 +14,7 @@ async def record(
     entity_type: str = "lead",
     entity_id: str | int | None = None,
     payload: dict[str, Any] | None = None,
+    commit: bool = True,
 ) -> None:
     session.add(
         AuditEvent(
@@ -24,4 +25,5 @@ async def record(
             payload=None if payload is None else json.dumps(payload, ensure_ascii=False),
         )
     )
-    await session.commit()
+    if commit:
+        await session.commit()

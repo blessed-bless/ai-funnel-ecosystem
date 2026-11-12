@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aifunnel.api.auth import require_crm_token
-from aifunnel.api.deps import enforce_api_limit, enforce_chat_limit
 from aifunnel.ai import build_ai
+from aifunnel.api.auth import AuthContext, require_crm_token
+from aifunnel.api.deps import enforce_api_limit, enforce_chat_limit
 from aifunnel.db import get_session
 from aifunnel.observability import metrics
 from aifunnel.schemas import (
@@ -14,6 +14,8 @@ from aifunnel.schemas import (
     LeadOut,
     LeadUpdate,
     MessageOut,
+    NoteCreate,
+    NoteOut,
     StatsOut,
 )
 from aifunnel.services import funnels as funnel_service
@@ -52,11 +54,37 @@ async def funnel_hit(
 async def api_list_leads(
     status: str | None = Query(default=None),
     source: str | None = Query(default=None),
+    q: str | None = Query(default=None, max_length=120),
+    tag: str | None = Query(default=None, max_length=64),
     limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_session),
 ) -> list[LeadOut]:
-    items = await lead_service.list_leads(session, limit=limit, status=status, source=source)
+    items = await lead_service.list_leads(
+        session,
+        limit=limit,
+        offset=offset,
+        status=status,
+        source=source,
+        q=q,
+        tag=tag,
+    )
     return [LeadOut.model_validate(item) for item in items]
+
+
+@router.get("/leads/export.csv", dependencies=[Depends(require_crm_token)])
+async def api_export_leads_csv(
+    status: str | None = Query(default=None),
+    q: str | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    items = await lead_service.list_leads(session, limit=500, status=status, q=q)
+    csv_text = lead_service.export_leads_csv(items)
+    return Response(
+        content=csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=leads.csv"},
+    )
 
 
 @router.post("/leads", response_model=LeadOut, dependencies=[Depends(require_crm_token)])
@@ -109,6 +137,44 @@ async def api_lead_messages(
         raise HTTPException(status_code=404, detail="Лид не найден")
     rows = await lead_service.list_messages(session, lead_id, limit=limit)
     return [MessageOut.model_validate(row) for row in rows]
+
+
+@router.get(
+    "/leads/{lead_id}/notes",
+    response_model=list[NoteOut],
+    dependencies=[Depends(require_crm_token)],
+)
+async def api_list_notes(
+    lead_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> list[NoteOut]:
+    lead = await lead_service.get_lead(session, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Лид не найден")
+    notes = await lead_service.list_notes(session, lead_id)
+    return [NoteOut.model_validate(n) for n in notes]
+
+
+@router.post(
+    "/leads/{lead_id}/notes",
+    response_model=NoteOut,
+)
+async def api_add_note(
+    lead_id: int,
+    payload: NoteCreate,
+    auth: AuthContext = Depends(require_crm_token),
+    session: AsyncSession = Depends(get_session),
+) -> NoteOut:
+    lead = await lead_service.get_lead(session, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Лид не найден")
+    note = await lead_service.add_note(
+        session,
+        lead_id=lead_id,
+        body=payload.body,
+        author=payload.author or auth.actor,
+    )
+    return NoteOut.model_validate(note)
 
 
 @router.post("/chat", response_model=ChatOut, dependencies=[Depends(enforce_chat_limit)])
