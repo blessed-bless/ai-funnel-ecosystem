@@ -2,9 +2,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from aifunnel.cache import funnel_id_cache
 from aifunnel.models import Funnel, FunnelStage
 from aifunnel.schemas import FunnelCreate
-
 
 DEFAULT_STAGES = [
     ("awareness", "Интерес", 10),
@@ -15,12 +15,24 @@ DEFAULT_STAGES = [
 
 
 async def ensure_default_funnel(session: AsyncSession) -> Funnel:
+    cached_id = funnel_id_cache.get("default")
+    if cached_id is not None:
+        funnel = await session.get(
+            Funnel,
+            cached_id,
+            options=(selectinload(Funnel.stages),),
+        )
+        if funnel is not None:
+            return funnel
+
     result = await session.execute(
         select(Funnel).options(selectinload(Funnel.stages)).where(Funnel.slug == "default")
     )
     funnel = result.scalar_one_or_none()
     if funnel:
+        funnel_id_cache.set("default", funnel.id)
         return funnel
+
     funnel = Funnel(
         slug="default",
         title="Основная воронка",
@@ -35,7 +47,9 @@ async def ensure_default_funnel(session: AsyncSession) -> Funnel:
     result = await session.execute(
         select(Funnel).options(selectinload(Funnel.stages)).where(Funnel.id == funnel.id)
     )
-    return result.scalar_one()
+    funnel = result.scalar_one()
+    funnel_id_cache.set("default", funnel.id)
+    return funnel
 
 
 async def list_funnels(session: AsyncSession) -> list[Funnel]:

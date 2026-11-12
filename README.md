@@ -9,7 +9,8 @@
 - Лендинг с hit в воронку (`/api/funnel/hit`)
 - Диалог `/api/chat` и Telegram-бот с квалификацией лида
 - CRM UI `/crm` + карточка лида с диалогом `/crm/leads/{id}`
-- REST: `/api/leads`, `/api/leads/{id}/messages`, `/api/stats`, `/api/funnels`
+- REST: `/api/leads` (search/tag), notes, CSV export, messages, stats, funnels
+- Performance: SQLite WAL, TTL-кэш stats/funnel, меньше commit в чате, batch messages
 - Auth: `X-CRM-Token` или JWT (`/api/auth/login`, `/me`); HTML CRM за cookie-логином
 - Security: rate-limit (memory/Redis), headers, request-id, CORS, pbkdf2
 - Reliability: `/health` + `/ready`, AI retries/fallback, outbox → webhook, Alembic

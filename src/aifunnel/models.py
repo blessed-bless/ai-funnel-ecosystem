@@ -1,7 +1,16 @@
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from aifunnel.db import Base
@@ -45,6 +54,10 @@ class FunnelStage(Base):
 
 class Lead(Base):
     __tablename__ = "leads"
+    __table_args__ = (
+        Index("ix_leads_status_updated", "status", "updated_at"),
+        Index("ix_leads_phone", "phone"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     source: Mapped[str] = mapped_column(String(64), default="direct", index=True)
@@ -59,11 +72,26 @@ class Lead(Base):
     need: Mapped[str | None] = mapped_column(Text, nullable=True)
     budget_note: Mapped[str | None] = mapped_column(String(120), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tags: Mapped[str | None] = mapped_column(String(255), nullable=True)  # comma-separated
     score: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+    notes: Mapped[list["LeadNote"]] = relationship(back_populates="lead", cascade="all, delete-orphan")
+
+
+class LeadNote(Base):
+    __tablename__ = "lead_notes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id", ondelete="CASCADE"), index=True)
+    author: Mapped[str] = mapped_column(String(64), default="system")
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    lead: Mapped[Lead] = relationship(back_populates="notes")
 
 
 class ConversationMessage(Base):
@@ -115,3 +143,18 @@ class OutboxJob(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class WebhookDelivery(Base):
+    """Факт доставки webhook (или локальной записи, если URL не задан)."""
+
+    __tablename__ = "webhook_deliveries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event: Mapped[str] = mapped_column(String(64), index=True)
+    target: Mapped[str] = mapped_column(String(255))
+    status_code: Mapped[int] = mapped_column(Integer, default=0)
+    success: Mapped[int] = mapped_column(Integer, default=0)
+    response_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payload: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

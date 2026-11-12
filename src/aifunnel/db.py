@@ -1,6 +1,6 @@
 from collections.abc import AsyncGenerator
 
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -11,9 +11,33 @@ class Base(DeclarativeBase):
     pass
 
 
-def _make_engine():
+def _configure_sqlite(sync_conn) -> None:
+    # Скорость и параллельные читатели на одном файле
+    sync_conn.execute(text("PRAGMA journal_mode=WAL"))
+    sync_conn.execute(text("PRAGMA synchronous=NORMAL"))
+    sync_conn.execute(text("PRAGMA temp_store=MEMORY"))
+    sync_conn.execute(text("PRAGMA foreign_keys=ON"))
+
+
+def _make_engine(url: str | None = None):
     settings = get_settings()
-    return create_async_engine(settings.database_url, echo=False)
+    db_url = url or settings.database_url
+    connect_args = {}
+    if db_url.startswith("sqlite"):
+        connect_args["check_same_thread"] = False
+    eng = create_async_engine(db_url, echo=False, connect_args=connect_args)
+    if db_url.startswith("sqlite"):
+
+        @event.listens_for(eng.sync_engine, "connect")
+        def _on_connect(dbapi_conn, _connection_record):  # noqa: ANN001
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA temp_store=MEMORY")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
+    return eng
 
 
 engine = _make_engine()
@@ -28,7 +52,7 @@ async def dispose_engine() -> None:
 def rebind_engine(url: str) -> None:
     """Пересоздаёт engine/sessionmaker — нужно тестам и hot-reload конфига."""
     global engine, SessionLocal
-    engine = create_async_engine(url, echo=False)
+    engine = _make_engine(url)
     SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
@@ -46,14 +70,13 @@ async def apply_lightweight_migrations() -> None:
         return
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # create_all уже создал таблицы; добираем колонки на старых БД
         try:
             await _sqlite_add_column_if_missing(conn, "leads", "email", "email VARCHAR(160)")
             await _sqlite_add_column_if_missing(conn, "leads", "funnel_id", "funnel_id INTEGER")
             await _sqlite_add_column_if_missing(conn, "leads", "stage_slug", "stage_slug VARCHAR(64)")
             await _sqlite_add_column_if_missing(conn, "leads", "score", "score INTEGER DEFAULT 0")
+            await _sqlite_add_column_if_missing(conn, "leads", "tags", "tags VARCHAR(255)")
         except Exception:
-            # Новая БД / нет таблицы leads ещё — create_all ниже/выше покрывает
             pass
 
 

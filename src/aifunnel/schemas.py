@@ -13,6 +13,7 @@ class LeadCreate(BaseModel):
     need: str | None = None
     budget_note: str | None = None
     summary: str | None = None
+    tags: str | None = None
     status: str = "new"
     funnel_id: int | None = None
     stage_slug: str | None = None
@@ -39,6 +40,7 @@ class LeadUpdate(BaseModel):
     funnel_id: int | None = None
     stage_slug: str | None = None
     score: int | None = None
+    tags: str | None = None
 
 
 class LeadOut(BaseModel):
@@ -55,9 +57,25 @@ class LeadOut(BaseModel):
     need: str | None
     budget_note: str | None
     summary: str | None
+    tags: str | None = None
     score: int = 0
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class NoteCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=4000)
+    author: str = "admin"
+
+
+class NoteOut(BaseModel):
+    id: int
+    lead_id: int
+    author: str
+    body: str
+    created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
