@@ -10,6 +10,12 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aifunnel import __version__
+from aifunnel.api.crm_auth import (
+    CrmLoginRequired,
+    crm_login_submit,
+    crm_logout,
+    require_crm_page,
+)
 from aifunnel.api.routes_auth import router as auth_router
 from aifunnel.api.routes_funnels import router as funnels_router
 from aifunnel.api.routes_health import router as health_router
@@ -21,6 +27,7 @@ from aifunnel.logging_setup import setup_logging
 from aifunnel.schemas import LeadUpdate
 from aifunnel.security import RequestIdMiddleware, SecurityHeadersMiddleware
 from aifunnel.security.metrics_middleware import MetricsMiddleware
+from aifunnel.security.redis_client import close_redis
 from aifunnel.services import admins as admin_service
 from aifunnel.services import funnels as funnel_service
 from aifunnel.services import leads as lead_service
@@ -38,6 +45,7 @@ async def lifespan(_app: FastAPI):
         await funnel_service.ensure_default_funnel(session)
         await admin_service.ensure_bootstrap_admin(session, settings)
     yield
+    await close_redis()
 
 
 app = FastAPI(title="AI Funnel Ecosystem", version=__version__, lifespan=lifespan)
@@ -63,6 +71,11 @@ if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
+@app.exception_handler(CrmLoginRequired)
+async def crm_login_required_handler(_request: Request, _exc: CrmLoginRequired):
+    return RedirectResponse(url="/crm/login", status_code=303)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def landing(request: Request) -> HTMLResponse:
     cfg = get_settings()
@@ -81,8 +94,35 @@ async def landing(request: Request) -> HTMLResponse:
     )
 
 
+@app.get("/crm/login", response_class=HTMLResponse)
+async def crm_login_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "crm_login.html",
+        {
+            "app_name": get_settings().app_name,
+            "error": request.query_params.get("error") == "1",
+        },
+    )
+
+
+@app.post("/crm/login")
+async def crm_login(response: RedirectResponse = Depends(crm_login_submit)) -> RedirectResponse:
+    return response
+
+
+@app.post("/crm/logout")
+@app.get("/crm/logout")
+async def crm_logout_route(response: RedirectResponse = Depends(crm_logout)) -> RedirectResponse:
+    return response
+
+
 @app.get("/crm", response_class=HTMLResponse)
-async def crm_page(request: Request, session: AsyncSession = Depends(get_session)) -> HTMLResponse:
+async def crm_page(
+    request: Request,
+    _actor: str = Depends(require_crm_page),
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
     items = await lead_service.list_leads(session)
     stats = await lead_service.stats(session)
     return templates.TemplateResponse(
@@ -100,6 +140,7 @@ async def crm_page(request: Request, session: AsyncSession = Depends(get_session
 async def crm_lead_detail(
     lead_id: int,
     request: Request,
+    _actor: str = Depends(require_crm_page),
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
     lead = await lead_service.get_lead(session, lead_id)
@@ -125,6 +166,7 @@ async def crm_lead_detail(
 @app.post("/crm/leads/{lead_id}/status")
 async def crm_set_status(
     lead_id: int,
+    _actor: str = Depends(require_crm_page),
     status: str = Form(...),
     session: AsyncSession = Depends(get_session),
 ) -> RedirectResponse:

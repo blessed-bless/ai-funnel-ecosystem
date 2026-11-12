@@ -13,6 +13,9 @@ os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 os.environ.setdefault("CHAT_RATE_LIMIT_PER_MINUTE", "1000")
 os.environ.setdefault("RATE_LIMIT_PER_MINUTE", "1000")
+os.environ.setdefault("CRM_PROTECT_HTML", "false")
+os.environ.setdefault("REDIS_URL", "")
+os.environ.setdefault("WEBHOOK_URL", "")
 
 
 @pytest.fixture(autouse=True)
@@ -31,6 +34,7 @@ def _clear_caches():
 async def client(tmp_path: Path):
     from aifunnel import db as dbmod
     from aifunnel.ai.factory import reset_ai_singleton
+    from aifunnel.api.deps import reset_limiters
     from aifunnel.config import get_settings
     from aifunnel.services import admins as admin_service
     from aifunnel.services import funnels as funnel_service
@@ -39,6 +43,7 @@ async def client(tmp_path: Path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{db_path.as_posix()}"
     get_settings.cache_clear()
     reset_ai_singleton()
+    reset_limiters()
     dbmod.rebind_engine(os.environ["DATABASE_URL"])
     await dbmod.init_db()
     settings = get_settings()

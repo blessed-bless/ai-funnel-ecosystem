@@ -32,6 +32,14 @@ class Settings(BaseSettings):
 
     rate_limit_per_minute: int = 60
     chat_rate_limit_per_minute: int = 20
+    redis_url: str = ""
+
+    webhook_url: str = ""
+    webhook_secret: str = ""
+    webhook_timeout_seconds: float = 8.0
+
+    crm_cookie_name: str = "aifunnel_session"
+    crm_protect_html: bool = True
 
     telegram_bot_token: str = ""
     telegram_bot_username: str = ""

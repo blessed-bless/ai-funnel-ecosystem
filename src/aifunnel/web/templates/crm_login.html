@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Вход в CRM — {{ app_name }}</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="page-crm">
+  <header class="site-header">
+    <a class="logo" href="/">{{ app_name }}</a>
+  </header>
+  <main class="crm login-wrap">
+    <form class="panel login-card" method="post" action="/crm/login">
+      <h1>Вход в CRM</h1>
+      {% if error %}
+      <p class="form-error">Неверный логин или пароль. Проверь данные и попробуй ещё раз.</p>
+      {% endif %}
+      <label>
+        Логин
+        <input name="username" autocomplete="username" required />
+      </label>
+      <label>
+        Пароль
+        <input type="password" name="password" autocomplete="current-password" required />
+      </label>
+      <button type="submit">Войти</button>
+    </form>
+  </main>
+</body>
+</html>

@@ -129,6 +129,8 @@ class ReadyOut(BaseModel):
     status: str
     database: str
     ai_circuit: str
+    redis: str = "disabled"
+    rate_limit: str = "memory"
 
 
 class StatsOut(BaseModel):
