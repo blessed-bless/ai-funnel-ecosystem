@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% if lead %}Лид #{{ lead.id }}{% else %}Не найден{% endif %} — {{ app_name }}</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="page-crm">
+  <header class="site-header">
+    <a class="logo" href="/">{{ app_name }}</a>
+    <nav>
+      <a href="/crm">К списку</a>
+      <a href="/">Лендинг</a>
+    </nav>
+  </header>
+
+  <main class="crm">
+    {% if not lead %}
+      <p class="empty">Такой заявки нет. Вернись к <a href="/crm">списку</a>.</p>
+    {% else %}
+      <div class="crm-head">
+        <h1>Лид #{{ lead.id }}</h1>
+        <div class="stat-row">
+          <div class="stat"><span>{{ lead.status }}</span> статус</div>
+          <div class="stat"><span>{{ lead.score }}</span> score</div>
+          <div class="stat"><span>{{ lead.source }}</span> источник</div>
+        </div>
+      </div>
+
+      <section class="detail-grid">
+        <article class="panel">
+          <h2>Карточка</h2>
+          <dl class="kv">
+            <dt>Телефон</dt><dd>{{ lead.phone or "—" }}</dd>
+            <dt>Email</dt><dd>{{ lead.email or "—" }}</dd>
+            <dt>Telegram</dt><dd>{{ lead.telegram_username or lead.telegram_id or "—" }}</dd>
+            <dt>Стадия</dt><dd>{{ lead.stage_slug or "—" }}</dd>
+            <dt>Нужда</dt><dd>{{ lead.need or "—" }}</dd>
+            <dt>Summary</dt><dd>{{ lead.summary or "—" }}</dd>
+          </dl>
+        </article>
+
+        <article class="panel">
+          <h2>Диалог</h2>
+          {% if not messages %}
+            <p class="empty">Сообщений пока нет.</p>
+          {% else %}
+            <div class="chat-log">
+              {% for msg in messages %}
+              <div class="bubble role-{{ msg.role }}">
+                <div class="meta">{{ msg.role }} · #{{ msg.id }}</div>
+                <div class="text">{{ msg.content }}</div>
+              </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </article>
+      </section>
+    {% endif %}
+  </main>
+</body>
+</html>

@@ -5,6 +5,7 @@ from aifunnel.api.auth import require_crm_token
 from aifunnel.api.deps import enforce_api_limit, enforce_chat_limit
 from aifunnel.ai import build_ai
 from aifunnel.db import get_session
+from aifunnel.observability import metrics
 from aifunnel.schemas import (
     ChatIn,
     ChatOut,
@@ -12,6 +13,7 @@ from aifunnel.schemas import (
     LeadCreate,
     LeadOut,
     LeadUpdate,
+    MessageOut,
     StatsOut,
 )
 from aifunnel.services import funnels as funnel_service
@@ -42,6 +44,7 @@ async def funnel_hit(
             stage_slug="awareness",
         ),
     )
+    metrics.inc("aifunnel_funnel_hits_total", labels={"source": payload.source})
     return LeadOut.model_validate(lead)
 
 
@@ -91,6 +94,23 @@ async def api_stats(session: AsyncSession = Depends(get_session)) -> StatsOut:
     return StatsOut(**await lead_service.stats(session))
 
 
+@router.get(
+    "/leads/{lead_id}/messages",
+    response_model=list[MessageOut],
+    dependencies=[Depends(require_crm_token)],
+)
+async def api_lead_messages(
+    lead_id: int,
+    limit: int = Query(default=100, ge=1, le=500),
+    session: AsyncSession = Depends(get_session),
+) -> list[MessageOut]:
+    lead = await lead_service.get_lead(session, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Лид не найден")
+    rows = await lead_service.list_messages(session, lead_id, limit=limit)
+    return [MessageOut.model_validate(row) for row in rows]
+
+
 @router.post("/chat", response_model=ChatOut, dependencies=[Depends(enforce_chat_limit)])
 async def api_chat(payload: ChatIn, session: AsyncSession = Depends(get_session)) -> ChatOut:
     funnel = await funnel_service.ensure_default_funnel(session)
@@ -121,6 +141,7 @@ async def api_chat(payload: ChatIn, session: AsyncSession = Depends(get_session)
     lead, reply, ready = await lead_service.chat_with_lead(
         session, ai, lead=lead, message=payload.message
     )
+    metrics.inc("aifunnel_chat_messages_total", labels={"ready": str(ready).lower()})
     return ChatOut(
         lead_id=lead.id,
         reply=reply,

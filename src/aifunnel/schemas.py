@@ -136,3 +136,13 @@ class StatsOut(BaseModel):
     leads_ready: int
     leads_qualifying: int
     outbox_pending: int
+
+
+class MessageOut(BaseModel):
+    id: int
+    lead_id: int
+    role: str
+    content: str
+    created_at: datetime | None = None
+
+    model_config = {"from_attributes": True}

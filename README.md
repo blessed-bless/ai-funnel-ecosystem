@@ -8,10 +8,12 @@
 
 - Лендинг с hit в воронку (`/api/funnel/hit`)
 - Диалог `/api/chat` и Telegram-бот с квалификацией лида
-- CRM UI `/crm` + REST `/api/leads`, `/api/stats`, `/api/funnels`
-- Security: CRM-токен, rate-limit, security headers, request-id, CORS
-- Reliability: `/health` + `/ready`, AI retries/fallback, outbox jobs, graceful worker stop
-- Лёгкие SQLite-миграции колонок на старте
+- CRM UI `/crm` + карточка лида с диалогом `/crm/leads/{id}`
+- REST: `/api/leads`, `/api/leads/{id}/messages`, `/api/stats`, `/api/funnels`
+- Auth: `X-CRM-Token` или JWT (`/api/auth/login`, `/api/auth/me`)
+- Security: rate-limit, security headers, request-id, CORS, pbkdf2 пароли
+- Reliability: `/health` + `/ready`, AI retries/fallback, outbox worker, Alembic
+- Metrics: `/metrics` (Prometheus text)
 
 ```
 landing → bot/chat → leads + audit → outbox worker → CRM
@@ -40,6 +42,14 @@ Docker:
 ```bash
 docker compose up --build api worker
 ```
+
+## Миграции
+
+```bash
+alembic upgrade head
+```
+
+На старте API также делает `create_all` + лёгкий ALTER для старых SQLite.
 
 ## Тесты
 
