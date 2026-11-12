@@ -198,8 +198,12 @@ async def chat_with_lead(
         lead.phone = phone
     if email and not lead.email:
         lead.email = email
-    if not lead.need and len(message) > 20 and not phone:
-        lead.need = message[:500]
+    if not lead.need and len(message) > 20:
+        # даже если в том же сообщении есть телефон — нужда тоже важна
+        cleaned_need = PHONE_RE.sub("", message)
+        cleaned_need = EMAIL_RE.sub("", cleaned_need).strip(" ,.;\n\t")
+        if len(cleaned_need) > 12:
+            lead.need = cleaned_need[:500]
     if lead.status == LeadStatus.NEW.value:
         lead.status = LeadStatus.QUALIFYING.value
         lead.stage_slug = lead.stage_slug or "qualify"
