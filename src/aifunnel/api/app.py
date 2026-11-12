@@ -9,14 +9,19 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aifunnel import __version__
+from aifunnel.api.routes_auth import router as auth_router
 from aifunnel.api.routes_funnels import router as funnels_router
 from aifunnel.api.routes_health import router as health_router
 from aifunnel.api.routes_leads import router as leads_router
+from aifunnel.api.routes_metrics import router as metrics_router
 from aifunnel.config import get_settings
 from aifunnel.db import SessionLocal, get_session, init_db
 from aifunnel.logging_setup import setup_logging
 from aifunnel.schemas import LeadUpdate
 from aifunnel.security import RequestIdMiddleware, SecurityHeadersMiddleware
+from aifunnel.security.metrics_middleware import MetricsMiddleware
+from aifunnel.services import admins as admin_service
 from aifunnel.services import funnels as funnel_service
 from aifunnel.services import leads as lead_service
 
@@ -31,10 +36,11 @@ async def lifespan(_app: FastAPI):
     await init_db()
     async with SessionLocal() as session:
         await funnel_service.ensure_default_funnel(session)
+        await admin_service.ensure_bootstrap_admin(session, settings)
     yield
 
 
-app = FastAPI(title="AI Funnel Ecosystem", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="AI Funnel Ecosystem", version=__version__, lifespan=lifespan)
 settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
@@ -43,9 +49,12 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
+app.add_middleware(MetricsMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIdMiddleware)
 app.include_router(health_router)
+app.include_router(metrics_router)
+app.include_router(auth_router)
 app.include_router(leads_router)
 app.include_router(funnels_router)
 
@@ -83,6 +92,32 @@ async def crm_page(request: Request, session: AsyncSession = Depends(get_session
             "app_name": get_settings().app_name,
             "leads": items,
             "stats": stats,
+        },
+    )
+
+
+@app.get("/crm/leads/{lead_id}", response_class=HTMLResponse)
+async def crm_lead_detail(
+    lead_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    lead = await lead_service.get_lead(session, lead_id)
+    if not lead:
+        return templates.TemplateResponse(
+            request,
+            "crm_lead.html",
+            {"app_name": get_settings().app_name, "lead": None, "messages": []},
+            status_code=404,
+        )
+    messages = await lead_service.list_messages(session, lead_id, limit=200)
+    return templates.TemplateResponse(
+        request,
+        "crm_lead.html",
+        {
+            "app_name": get_settings().app_name,
+            "lead": lead,
+            "messages": messages,
         },
     )
 

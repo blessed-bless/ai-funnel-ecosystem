@@ -46,7 +46,7 @@
           <tbody>
             {% for lead in leads %}
             <tr>
-              <td>{{ lead.id }}</td>
+              <td><a href="/crm/leads/{{ lead.id }}">{{ lead.id }}</a></td>
               <td>{{ lead.source }}</td>
               <td>{{ lead.stage_slug or "—" }}</td>
               <td><span class="tag status-{{ lead.status }}">{{ lead.status }}</span></td>

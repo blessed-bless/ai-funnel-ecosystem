@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     crm_api_token: str = Field(default="dev-crm-token-change-me", min_length=8)
     cors_origins: str = "http://127.0.0.1:8080,http://localhost:8080"
 
+    jwt_secret: str = Field(default="dev-jwt-secret-change-me-please-32b", min_length=32)
+    jwt_expire_minutes: int = 720
+    admin_username: str = "admin"
+    admin_password: str = "admin-change-me"
+
     rate_limit_per_minute: int = 60
     chat_rate_limit_per_minute: int = 20
 
@@ -72,4 +77,8 @@ def get_settings() -> Settings:
     settings = Settings()
     if settings.is_production and settings.crm_api_token.startswith("dev-"):
         raise RuntimeError("В production нельзя оставлять дефолтный CRM_API_TOKEN")
+    if settings.is_production and settings.jwt_secret.startswith("dev-"):
+        raise RuntimeError("В production нельзя оставлять дефолтный JWT_SECRET")
+    if settings.is_production and settings.admin_password in {"admin-change-me", "admin", "password"}:
+        raise RuntimeError("В production задай нормальный ADMIN_PASSWORD")
     return settings

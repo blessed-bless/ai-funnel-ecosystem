@@ -102,14 +102,23 @@ async def append_message(session: AsyncSession, lead_id: int, role: str, content
 
 
 async def load_history(session: AsyncSession, lead_id: int, limit: int = 20) -> list[ChatTurn]:
+    rows = await list_messages(session, lead_id, limit=limit)
+    return [ChatTurn(role=row.role, content=row.content) for row in rows]
+
+
+async def list_messages(
+    session: AsyncSession,
+    lead_id: int,
+    *,
+    limit: int = 100,
+) -> list[ConversationMessage]:
     result = await session.execute(
         select(ConversationMessage)
         .where(ConversationMessage.lead_id == lead_id)
         .order_by(ConversationMessage.id.desc())
-        .limit(limit)
+        .limit(min(max(limit, 1), 500))
     )
-    rows = list(reversed(result.scalars().all()))
-    return [ChatTurn(role=row.role, content=row.content) for row in rows]
+    return list(reversed(result.scalars().all()))
 
 
 def extract_phone(text: str) -> str | None:
