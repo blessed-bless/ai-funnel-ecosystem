@@ -63,6 +63,7 @@ async def test_crm_html_requires_login(tmp_path, monkeypatch):
         ok = await client.get("/crm")
         assert ok.status_code == 200
         assert "Заявки" in ok.text
+    await dbmod.dispose_engine()
 
 
 @pytest.mark.asyncio

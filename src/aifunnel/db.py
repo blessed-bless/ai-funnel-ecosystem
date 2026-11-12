@@ -20,6 +20,11 @@ engine = _make_engine()
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
+async def dispose_engine() -> None:
+    """Закрывает пул соединений — иначе aiosqlite ругается после закрытия event loop."""
+    await engine.dispose()
+
+
 def rebind_engine(url: str) -> None:
     """Пересоздаёт engine/sessionmaker — нужно тестам и hot-reload конфига."""
     global engine, SessionLocal

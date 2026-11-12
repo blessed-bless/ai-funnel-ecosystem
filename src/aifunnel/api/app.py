@@ -22,7 +22,7 @@ from aifunnel.api.routes_health import router as health_router
 from aifunnel.api.routes_leads import router as leads_router
 from aifunnel.api.routes_metrics import router as metrics_router
 from aifunnel.config import get_settings
-from aifunnel.db import SessionLocal, get_session, init_db
+from aifunnel.db import SessionLocal, dispose_engine, get_session, init_db
 from aifunnel.logging_setup import setup_logging
 from aifunnel.schemas import LeadUpdate
 from aifunnel.security import RequestIdMiddleware, SecurityHeadersMiddleware
@@ -46,6 +46,7 @@ async def lifespan(_app: FastAPI):
         await admin_service.ensure_bootstrap_admin(session, settings)
     yield
     await close_redis()
+    await dispose_engine()
 
 
 app = FastAPI(title="AI Funnel Ecosystem", version=__version__, lifespan=lifespan)

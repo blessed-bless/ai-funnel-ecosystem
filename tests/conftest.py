@@ -56,3 +56,4 @@ async def client(tmp_path: Path):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+    await dbmod.dispose_engine()
