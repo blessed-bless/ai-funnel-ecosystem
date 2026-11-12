@@ -217,6 +217,41 @@ button:hover { border-color: var(--accent); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+.login-wrap {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 80px);
+}
+.login-card {
+  width: min(420px, 92vw);
+  display: grid;
+  gap: 0.8rem;
+}
+.login-card h1 {
+  margin: 0 0 0.4rem;
+  font-size: 1.5rem;
+  font-family: var(--font-display);
+}
+.login-card label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.login-card input {
+  background: #0b1511;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  padding: 0.7rem 0.75rem;
+  font: inherit;
+}
+.form-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.92rem;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

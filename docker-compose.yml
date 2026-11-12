@@ -1,10 +1,19 @@
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    profiles:
+      - redis
+
   api:
     build: .
     ports:
       - "8080:8080"
     env_file:
       - .env
+    environment:
+      REDIS_URL: ${REDIS_URL:-}
     volumes:
       - ./data:/app/data
     command: ["aifunnel-api"]

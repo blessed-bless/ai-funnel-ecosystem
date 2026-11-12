@@ -6,7 +6,9 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aifunnel.config import get_settings
 from aifunnel.models import OutboxJob
+from aifunnel.services import webhooks
 
 logger = logging.getLogger("aifunnel.outbox")
 
@@ -58,9 +60,9 @@ async def mark_failed(session: AsyncSession, job: OutboxJob, error: str, *, retr
 
 async def process_job(session: AsyncSession, job: OutboxJob) -> None:
     data = json.loads(job.payload)
+    settings = get_settings()
     if job.kind == "notify_ready_lead":
-        # Пока логируем — хук под webhook/Telegram manager
-        logger.info("ready_lead lead_id=%s phone=%s", data.get("lead_id"), data.get("phone"))
+        await webhooks.post_webhook(settings, "lead.ready", data)
         await mark_done(session, job)
         return
     await mark_failed(session, job, f"unknown kind: {job.kind}", retry=False)

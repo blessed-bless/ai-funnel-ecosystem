@@ -10,9 +10,9 @@
 - Диалог `/api/chat` и Telegram-бот с квалификацией лида
 - CRM UI `/crm` + карточка лида с диалогом `/crm/leads/{id}`
 - REST: `/api/leads`, `/api/leads/{id}/messages`, `/api/stats`, `/api/funnels`
-- Auth: `X-CRM-Token` или JWT (`/api/auth/login`, `/api/auth/me`)
-- Security: rate-limit, security headers, request-id, CORS, pbkdf2 пароли
-- Reliability: `/health` + `/ready`, AI retries/fallback, outbox worker, Alembic
+- Auth: `X-CRM-Token` или JWT (`/api/auth/login`, `/me`); HTML CRM за cookie-логином
+- Security: rate-limit (memory/Redis), headers, request-id, CORS, pbkdf2
+- Reliability: `/health` + `/ready`, AI retries/fallback, outbox → webhook, Alembic
 - Metrics: `/metrics` (Prometheus text)
 
 ```
