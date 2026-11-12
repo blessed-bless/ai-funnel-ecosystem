@@ -1,0 +1,22 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    command: ["aifunnel-api"]
+
+  bot:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    command: ["aifunnel-bot"]
+    depends_on:
+      - api
+    profiles:
+      - bot
