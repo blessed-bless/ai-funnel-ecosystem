@@ -6,35 +6,34 @@
   <title>{{ app_name }}</title>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body>
+<body class="page-landing">
+  <div class="noise" aria-hidden="true"></div>
+  <header class="site-header">
+    <a class="logo" href="/">{{ app_name }}</a>
+    <nav>
+      <a href="/crm">CRM</a>
+      <a href="/ready">Статус</a>
+    </nav>
+  </header>
+
   <main class="hero">
-    <p class="brand">{{ app_name }}</p>
-    <h1>Воронка, бот с ИИ и CRM в одном контуре</h1>
+    <p class="eyebrow">воронка · ai-бот · crm</p>
+    <h1>Заявки сами доходят до менеджера</h1>
     <p class="lead">
-      Лид с лендинга уходит в Telegram, бот квалифицирует задачу и кладёт заявку в mini-CRM.
+      Лид заходит с лендинга, бот уточняет задачу и контакт, CRM держит статус
+      без ручного копипаста из чатов.
     </p>
     <div class="actions">
       <a class="btn primary" id="cta-bot" href="{{ bot_link }}">Написать в бота</a>
-      <a class="btn ghost" href="/crm">Открыть CRM</a>
+      <a class="btn ghost" href="/crm">Смотреть заявки</a>
     </div>
+    <ul class="signals">
+      <li>Источник и UTM на каждом лиде</li>
+      <li>AI с retry и fallback</li>
+      <li>Outbox для уведомлений</li>
+    </ul>
   </main>
-  <script>
-    (async () => {
-      try {
-        await fetch('/api/funnel/hit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source: 'landing', path: location.pathname })
-        });
-      } catch (e) {}
-      const params = new URLSearchParams(location.search);
-      const src = params.get('src') || 'landing';
-      const link = document.getElementById('cta-bot');
-      if (link && !link.href.includes('start=')) {
-        // deep-link подставишь после создания бота: https://t.me/<bot>?start=landing
-        link.dataset.source = src;
-      }
-    })();
-  </script>
+
+  <script src="/static/landing.js"></script>
 </body>
 </html>
