@@ -20,7 +20,7 @@
       <p class="empty">Такой заявки нет. Вернись к <a href="/crm">списку</a>.</p>
     {% else %}
       <div class="crm-head">
-        <h1>Лид #{{ lead.id }}</h1>
+        <h1>Лид #{{ lead.id }}{% if lead.deleted_at %} <span class="tag status-spam">deleted</span>{% endif %}</h1>
         <div class="stat-row">
           <div class="stat"><span>{{ lead.status }}</span> статус</div>
           <div class="stat"><span>{{ lead.score }}</span> score</div>
@@ -32,13 +32,36 @@
         <article class="panel">
           <h2>Карточка</h2>
           <dl class="kv">
-            <dt>Телефон</dt><dd>{{ lead.phone or "—" }}</dd>
+            <dt>Телефон</dt><dd>{{ lead.phone or "—" }} <span class="muted">{{ lead.phone_normalized or "" }}</span></dd>
             <dt>Email</dt><dd>{{ lead.email or "—" }}</dd>
             <dt>Telegram</dt><dd>{{ lead.telegram_username or lead.telegram_id or "—" }}</dd>
             <dt>Стадия</dt><dd>{{ lead.stage_slug or "—" }}</dd>
+            <dt>Теги</dt><dd>{{ lead.tags or "—" }}</dd>
+            <dt>Менеджер</dt><dd>{{ lead.assigned_manager_id or "—" }}</dd>
             <dt>Нужда</dt><dd>{{ lead.need or "—" }}</dd>
             <dt>Summary</dt><dd>{{ lead.summary or "—" }}</dd>
           </dl>
+        </article>
+
+        <article class="panel">
+          <h2>Заметка</h2>
+          <form method="post" action="/crm/leads/{{ lead.id }}/notes" class="login-card" style="box-shadow:none;border:0;padding:0;background:transparent">
+            <label>
+              Текст
+              <textarea name="body" rows="3" required placeholder="Что важно менеджеру"></textarea>
+            </label>
+            <button type="submit">Добавить заметку</button>
+          </form>
+          {% if notes %}
+          <div class="chat-log" style="margin-top:1rem">
+            {% for note in notes %}
+            <div class="bubble">
+              <div class="meta">{{ note.author }} · #{{ note.id }}</div>
+              <div class="text">{{ note.body }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
         </article>
 
         <article class="panel">
@@ -51,6 +74,22 @@
               <div class="bubble role-{{ msg.role }}">
                 <div class="meta">{{ msg.role }} · #{{ msg.id }}</div>
                 <div class="text">{{ msg.content }}</div>
+              </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </article>
+
+        <article class="panel">
+          <h2>Timeline</h2>
+          {% if not activities %}
+            <p class="empty">Событий ещё нет.</p>
+          {% else %}
+            <div class="chat-log">
+              {% for act in activities %}
+              <div class="bubble">
+                <div class="meta">{{ act.kind }} · {{ act.actor }} · #{{ act.id }}</div>
+                <div class="text">{{ act.message }}</div>
               </div>
               {% endfor %}
             </div>

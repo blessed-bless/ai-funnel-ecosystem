@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from aifunnel.cache import funnel_id_cache
 from aifunnel.models import Funnel, FunnelStage
 from aifunnel.schemas import FunnelCreate
+from aifunnel.services import workspace as workspace_service
 
 DEFAULT_STAGES = [
     ("awareness", "Интерес", 10),
@@ -33,11 +34,13 @@ async def ensure_default_funnel(session: AsyncSession) -> Funnel:
         funnel_id_cache.set("default", funnel.id)
         return funnel
 
+    ws = await workspace_service.ensure_default_workspace(session)
     funnel = Funnel(
         slug="default",
         title="Основная воронка",
         description="Лендинг → бот → CRM",
         is_active=1,
+        workspace_id=ws.id,
     )
     session.add(funnel)
     await session.flush()

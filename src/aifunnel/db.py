@@ -76,6 +76,15 @@ async def apply_lightweight_migrations() -> None:
             await _sqlite_add_column_if_missing(conn, "leads", "stage_slug", "stage_slug VARCHAR(64)")
             await _sqlite_add_column_if_missing(conn, "leads", "score", "score INTEGER DEFAULT 0")
             await _sqlite_add_column_if_missing(conn, "leads", "tags", "tags VARCHAR(255)")
+            await _sqlite_add_column_if_missing(
+                conn, "leads", "phone_normalized", "phone_normalized VARCHAR(32)"
+            )
+            await _sqlite_add_column_if_missing(conn, "leads", "workspace_id", "workspace_id INTEGER")
+            await _sqlite_add_column_if_missing(
+                conn, "leads", "assigned_manager_id", "assigned_manager_id INTEGER"
+            )
+            await _sqlite_add_column_if_missing(conn, "leads", "deleted_at", "deleted_at DATETIME")
+            await _sqlite_add_column_if_missing(conn, "funnels", "workspace_id", "workspace_id INTEGER")
         except Exception:
             pass
 

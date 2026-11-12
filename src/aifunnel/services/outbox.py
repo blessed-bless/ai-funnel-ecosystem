@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aifunnel.config import get_settings
 from aifunnel.models import OutboxJob
-from aifunnel.services import webhooks
+from aifunnel.services import notify, webhooks
 
 logger = logging.getLogger("aifunnel.outbox")
 
@@ -18,11 +18,15 @@ async def enqueue(
     *,
     kind: str,
     payload: dict[str, Any],
+    commit: bool = True,
 ) -> OutboxJob:
     job = OutboxJob(kind=kind, payload=json.dumps(payload, ensure_ascii=False), status="pending")
     session.add(job)
-    await session.commit()
-    await session.refresh(job)
+    if commit:
+        await session.commit()
+        await session.refresh(job)
+    else:
+        await session.flush()
     return job
 
 
@@ -37,7 +41,6 @@ async def claim_pending(session: AsyncSession, limit: int = 20) -> list[OutboxJo
     try:
         result = await session.execute(base.with_for_update(skip_locked=True))
     except Exception:
-        # SQLite и часть драйверов не умеют SKIP LOCKED — обычный select
         result = await session.execute(base)
     jobs = list(result.scalars().all())
     for job in jobs:
@@ -56,7 +59,6 @@ async def mark_done(session: AsyncSession, job: OutboxJob) -> None:
 async def mark_failed(session: AsyncSession, job: OutboxJob, error: str, *, retry: bool = True) -> None:
     job.last_error = error[:2000]
     if retry and job.attempts < 5:
-        # exponential backoff
         delay = min(300, 2 ** job.attempts)
         job.status = "pending"
         job.available_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
@@ -71,6 +73,10 @@ async def process_job(session: AsyncSession, job: OutboxJob) -> None:
     settings = get_settings()
     if job.kind == "notify_ready_lead":
         await webhooks.post_webhook(settings, "lead.ready", data, session=session)
+        await mark_done(session, job)
+        return
+    if job.kind == "notify_telegram_manager":
+        await notify.telegram_manager_about_lead(session, settings, lead_id=int(data["lead_id"]))
         await mark_done(session, job)
         return
     await mark_failed(session, job, f"unknown kind: {job.kind}", retry=False)

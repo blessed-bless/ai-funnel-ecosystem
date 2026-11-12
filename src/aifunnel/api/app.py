@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
-from fastapi import Depends, FastAPI, Form, Request
+from fastapi import Depends, FastAPI, Form, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,6 +20,7 @@ from aifunnel.api.routes_auth import router as auth_router
 from aifunnel.api.routes_funnels import router as funnels_router
 from aifunnel.api.routes_health import router as health_router
 from aifunnel.api.routes_leads import router as leads_router
+from aifunnel.api.routes_managers import router as managers_router
 from aifunnel.api.routes_metrics import router as metrics_router
 from aifunnel.config import get_settings
 from aifunnel.db import SessionLocal, dispose_engine, get_session, init_db
@@ -28,9 +29,11 @@ from aifunnel.schemas import LeadUpdate
 from aifunnel.security import RequestIdMiddleware, SecurityHeadersMiddleware
 from aifunnel.security.metrics_middleware import MetricsMiddleware
 from aifunnel.security.redis_client import close_redis
+from aifunnel.services import activities as activity_service
 from aifunnel.services import admins as admin_service
 from aifunnel.services import funnels as funnel_service
 from aifunnel.services import leads as lead_service
+from aifunnel.services import workspace as workspace_service
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "web" / "templates"
 STATIC_DIR = Path(__file__).resolve().parent.parent / "web" / "static"
@@ -42,6 +45,19 @@ async def lifespan(_app: FastAPI):
     setup_logging(settings.log_level)
     await init_db()
     async with SessionLocal() as session:
+        ws = await workspace_service.ensure_default_workspace(session)
+        await workspace_service.ensure_default_manager(session, ws.id)
+        if settings.telegram_manager_chat_id:
+            managers = await workspace_service.list_managers(session, ws.id)
+            default = next((m for m in managers if m.name == "Default"), None)
+            if default and not default.telegram_chat_id:
+                await workspace_service.upsert_manager(
+                    session,
+                    workspace_id=ws.id,
+                    name=default.name,
+                    telegram_chat_id=settings.telegram_manager_chat_id,
+                    manager_id=default.id,
+                )
         await funnel_service.ensure_default_funnel(session)
         await admin_service.ensure_bootstrap_admin(session, settings)
     yield
@@ -55,7 +71,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 app.add_middleware(MetricsMiddleware)
@@ -66,6 +82,7 @@ app.include_router(metrics_router)
 app.include_router(auth_router)
 app.include_router(leads_router)
 app.include_router(funnels_router)
+app.include_router(managers_router)
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 if STATIC_DIR.exists():
@@ -122,9 +139,11 @@ async def crm_logout_route(response: RedirectResponse = Depends(crm_logout)) -> 
 async def crm_page(
     request: Request,
     _actor: str = Depends(require_crm_page),
+    status: str | None = Query(default=None),
+    q: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
-    items = await lead_service.list_leads(session)
+    items = await lead_service.list_leads(session, status=status, q=q, limit=200)
     stats = await lead_service.stats(session)
     return templates.TemplateResponse(
         request,
@@ -133,6 +152,9 @@ async def crm_page(
             "app_name": get_settings().app_name,
             "leads": items,
             "stats": stats,
+            "filter_status": status or "",
+            "filter_q": q or "",
+            "error": request.query_params.get("error"),
         },
     )
 
@@ -144,15 +166,23 @@ async def crm_lead_detail(
     _actor: str = Depends(require_crm_page),
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
-    lead = await lead_service.get_lead(session, lead_id)
+    lead = await lead_service.get_lead(session, lead_id, include_deleted=True)
     if not lead:
         return templates.TemplateResponse(
             request,
             "crm_lead.html",
-            {"app_name": get_settings().app_name, "lead": None, "messages": []},
+            {
+                "app_name": get_settings().app_name,
+                "lead": None,
+                "messages": [],
+                "notes": [],
+                "activities": [],
+            },
             status_code=404,
         )
     messages = await lead_service.list_messages(session, lead_id, limit=200)
+    notes = await lead_service.list_notes(session, lead_id)
+    acts = await activity_service.list_activities(session, lead_id)
     return templates.TemplateResponse(
         request,
         "crm_lead.html",
@@ -160,6 +190,9 @@ async def crm_lead_detail(
             "app_name": get_settings().app_name,
             "lead": lead,
             "messages": messages,
+            "notes": notes,
+            "activities": acts,
+            "error": request.query_params.get("error"),
         },
     )
 
@@ -173,8 +206,29 @@ async def crm_set_status(
 ) -> RedirectResponse:
     lead = await lead_service.get_lead(session, lead_id)
     if lead:
-        await lead_service.update_lead(session, lead, LeadUpdate(status=status, stage_slug=status))
+        try:
+            await lead_service.update_lead(
+                session, lead, LeadUpdate(status=status, stage_slug=status), actor="crm-ui"
+            )
+        except ValueError as exc:
+            return RedirectResponse(
+                url=f"/crm?error={str(exc)[:120]}",
+                status_code=303,
+            )
     return RedirectResponse(url="/crm", status_code=303)
+
+
+@app.post("/crm/leads/{lead_id}/notes")
+async def crm_add_note(
+    lead_id: int,
+    _actor: str = Depends(require_crm_page),
+    body: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    lead = await lead_service.get_lead(session, lead_id)
+    if lead and body.strip():
+        await lead_service.add_note(session, lead_id=lead_id, body=body, author="crm-ui")
+    return RedirectResponse(url=f"/crm/leads/{lead_id}", status_code=303)
 
 
 def run() -> None:
