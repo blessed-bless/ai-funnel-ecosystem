@@ -27,8 +27,30 @@
       </div>
     </div>
 
+    {% if error %}
+    <p class="form-error">{{ error }}</p>
+    {% endif %}
+
+    <form class="filters panel" method="get" action="/crm">
+      <label>
+        Статус
+        <select name="status">
+          <option value="">все</option>
+          {% for s in ["new", "qualifying", "ready", "handed", "closed", "spam"] %}
+          <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Поиск
+        <input name="q" value="{{ filter_q }}" placeholder="телефон, имя, нужда" />
+      </label>
+      <button type="submit">Применить фильтр</button>
+      <a class="btn ghost" href="/crm">Сбросить</a>
+    </form>
+
     {% if not leads %}
-      <p class="empty">Здесь пока пусто. Открой лендинг или дерни <code>/api/chat</code> — появится первая заявка.</p>
+      <p class="empty">По фильтру пусто. Смени условия или дождись первой заявки из бота.</p>
     {% else %}
       <div class="table-wrap">
         <table>

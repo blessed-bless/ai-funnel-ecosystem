@@ -8,12 +8,16 @@
 
 - Лендинг с hit в воронку (`/api/funnel/hit`)
 - Диалог `/api/chat` и Telegram-бот с квалификацией лида
-- CRM UI `/crm` + карточка лида с диалогом `/crm/leads/{id}`
-- REST: `/api/leads` (search/tag), notes, CSV export, messages, stats, funnels
-- Performance: SQLite WAL, TTL-кэш stats/funnel, меньше commit в чате, batch messages
-- Auth: `X-CRM-Token` или JWT (`/api/auth/login`, `/me`); HTML CRM за cookie-логином
+- Workspace + managers (`/api/managers`), назначение менеджера на лид
+- Soft-delete / restore, dedupe по нормализованному телефону
+- Правила переходов статуса, timeline (`/api/leads/{id}/activities`)
+- CRM UI: фильтры, заметки, timeline на карточке
+- REST: search/tag/manager, notes, CSV import/export, bulk status, messages, stats, funnels
+- Outbox: webhook + notify менеджеру в Telegram
+- Performance: SQLite WAL, TTL-кэш stats/funnel, batch messages
+- Auth: `X-CRM-Token` или JWT; HTML CRM за cookie-логином
 - Security: rate-limit (memory/Redis), headers, request-id, CORS, pbkdf2
-- Reliability: `/health` + `/ready`, AI retries/fallback, outbox → webhook, Alembic
+- Reliability: `/health` + `/ready`, AI retries/fallback, Alembic
 - Metrics: `/metrics` (Prometheus text)
 
 ```

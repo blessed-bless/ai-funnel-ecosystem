@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_bot_username: str = ""
     telegram_manager_url: str = "https://t.me/"
+    telegram_manager_chat_id: str = ""
 
     ai_provider: str = "mock"
     ai_api_key: str = ""

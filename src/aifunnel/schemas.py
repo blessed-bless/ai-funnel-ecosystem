@@ -17,6 +17,8 @@ class LeadCreate(BaseModel):
     status: str = "new"
     funnel_id: int | None = None
     stage_slug: str | None = None
+    workspace_id: int | None = None
+    assigned_manager_id: int | None = None
     score: int = 0
 
     @field_validator("source")
@@ -41,6 +43,8 @@ class LeadUpdate(BaseModel):
     stage_slug: str | None = None
     score: int | None = None
     tags: str | None = None
+    assigned_manager_id: int | None = None
+    workspace_id: int | None = None
 
 
 class LeadOut(BaseModel):
@@ -49,8 +53,11 @@ class LeadOut(BaseModel):
     status: str
     funnel_id: int | None = None
     stage_slug: str | None = None
+    workspace_id: int | None = None
+    assigned_manager_id: int | None = None
     name: str | None
     phone: str | None
+    phone_normalized: str | None = None
     email: str | None = None
     telegram_id: str | None
     telegram_username: str | None
@@ -59,6 +66,7 @@ class LeadOut(BaseModel):
     summary: str | None
     tags: str | None = None
     score: int = 0
+    deleted_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -78,6 +86,50 @@ class NoteOut(BaseModel):
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+
+class ActivityOut(BaseModel):
+    id: int
+    lead_id: int
+    kind: str
+    actor: str
+    message: str
+    meta_json: str | None = None
+    created_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class BulkStatusIn(BaseModel):
+    lead_ids: list[int] = Field(min_length=1, max_length=200)
+    status: str
+
+
+class BulkStatusOut(BaseModel):
+    updated: int
+    failed: list[str] = Field(default_factory=list)
+
+
+class ImportResultOut(BaseModel):
+    created: int
+    merged: int
+    errors: list[str]
+
+
+class ManagerOut(BaseModel):
+    id: int
+    workspace_id: int
+    name: str
+    telegram_chat_id: str | None
+    is_active: int
+
+    model_config = {"from_attributes": True}
+
+
+class ManagerUpsert(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    telegram_chat_id: str | None = None
+    manager_id: int | None = None
 
 
 class ChatIn(BaseModel):

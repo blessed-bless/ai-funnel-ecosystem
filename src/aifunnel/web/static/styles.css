@@ -217,6 +217,30 @@ button:hover { border-color: var(--accent); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+.filters label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.filters input, .filters select, textarea {
+  background: #0b1511;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  min-width: 12rem;
+}
+textarea { width: 100%; resize: vertical; }
+
 .login-wrap {
   display: grid;
   place-items: center;

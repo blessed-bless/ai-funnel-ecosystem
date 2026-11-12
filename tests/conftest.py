@@ -39,6 +39,7 @@ async def client(tmp_path: Path):
     from aifunnel.config import get_settings
     from aifunnel.services import admins as admin_service
     from aifunnel.services import funnels as funnel_service
+    from aifunnel.services import workspace as workspace_service
 
     db_path = tmp_path / "test.db"
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{db_path.as_posix()}"
@@ -51,6 +52,8 @@ async def client(tmp_path: Path):
     await dbmod.init_db()
     settings = get_settings()
     async with dbmod.SessionLocal() as session:
+        ws = await workspace_service.ensure_default_workspace(session)
+        await workspace_service.ensure_default_manager(session, ws.id)
         await funnel_service.ensure_default_funnel(session)
         await admin_service.ensure_bootstrap_admin(session, settings)
 
