@@ -8,6 +8,23 @@ services:
     volumes:
       - ./data:/app/data
     command: ["aifunnel-api"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  worker:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    command: ["aifunnel-worker"]
+    depends_on:
+      api:
+        condition: service_healthy
 
   bot:
     build: .
@@ -17,6 +34,7 @@ services:
       - ./data:/app/data
     command: ["aifunnel-bot"]
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     profiles:
       - bot

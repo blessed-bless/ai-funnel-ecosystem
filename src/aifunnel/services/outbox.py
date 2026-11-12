@@ -1,0 +1,66 @@
+import json
+import logging
+from datetime import datetime, timezone
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from aifunnel.models import OutboxJob
+
+logger = logging.getLogger("aifunnel.outbox")
+
+
+async def enqueue(
+    session: AsyncSession,
+    *,
+    kind: str,
+    payload: dict[str, Any],
+) -> OutboxJob:
+    job = OutboxJob(kind=kind, payload=json.dumps(payload, ensure_ascii=False), status="pending")
+    session.add(job)
+    await session.commit()
+    await session.refresh(job)
+    return job
+
+
+async def claim_pending(session: AsyncSession, limit: int = 20) -> list[OutboxJob]:
+    now = datetime.now(timezone.utc)
+    result = await session.execute(
+        select(OutboxJob)
+        .where(OutboxJob.status == "pending", OutboxJob.available_at <= now)
+        .order_by(OutboxJob.id.asc())
+        .limit(limit)
+    )
+    jobs = list(result.scalars().all())
+    for job in jobs:
+        job.status = "processing"
+        job.attempts += 1
+    await session.commit()
+    return jobs
+
+
+async def mark_done(session: AsyncSession, job: OutboxJob) -> None:
+    job.status = "done"
+    job.last_error = None
+    await session.commit()
+
+
+async def mark_failed(session: AsyncSession, job: OutboxJob, error: str, *, retry: bool = True) -> None:
+    job.last_error = error[:2000]
+    if retry and job.attempts < 5:
+        job.status = "pending"
+    else:
+        job.status = "failed"
+    await session.commit()
+    logger.error("outbox job_id=%s kind=%s status=%s err=%s", job.id, job.kind, job.status, error)
+
+
+async def process_job(session: AsyncSession, job: OutboxJob) -> None:
+    data = json.loads(job.payload)
+    if job.kind == "notify_ready_lead":
+        # Пока логируем — хук под webhook/Telegram manager
+        logger.info("ready_lead lead_id=%s phone=%s", data.get("lead_id"), data.get("phone"))
+        await mark_done(session, job)
+        return
+    await mark_failed(session, job, f"unknown kind: {job.kind}", retry=False)

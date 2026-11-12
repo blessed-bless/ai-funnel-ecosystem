@@ -1,0 +1,130 @@
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from aifunnel.api.auth import require_crm_token
+from aifunnel.api.deps import enforce_api_limit, enforce_chat_limit
+from aifunnel.ai import build_ai
+from aifunnel.db import get_session
+from aifunnel.schemas import (
+    ChatIn,
+    ChatOut,
+    FunnelHitIn,
+    LeadCreate,
+    LeadOut,
+    LeadUpdate,
+    StatsOut,
+)
+from aifunnel.services import funnels as funnel_service
+from aifunnel.services import leads as lead_service
+
+router = APIRouter(prefix="/api", tags=["leads"])
+
+
+@router.post("/funnel/hit", response_model=LeadOut, dependencies=[Depends(enforce_api_limit)])
+async def funnel_hit(
+    payload: FunnelHitIn,
+    session: AsyncSession = Depends(get_session),
+) -> LeadOut:
+    source = payload.source
+    if payload.utm_campaign:
+        source = f"{source}:{payload.utm_campaign}"
+    funnel = None
+    if payload.funnel_slug:
+        funnel = await funnel_service.get_by_slug(session, payload.funnel_slug)
+        if funnel is None:
+            funnel = await funnel_service.ensure_default_funnel(session)
+    lead = await lead_service.create_lead(
+        session,
+        LeadCreate(
+            source=source,
+            status="new",
+            funnel_id=funnel.id if funnel else None,
+            stage_slug="awareness",
+        ),
+    )
+    return LeadOut.model_validate(lead)
+
+
+@router.get("/leads", response_model=list[LeadOut], dependencies=[Depends(require_crm_token)])
+async def api_list_leads(
+    status: str | None = Query(default=None),
+    source: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    session: AsyncSession = Depends(get_session),
+) -> list[LeadOut]:
+    items = await lead_service.list_leads(session, limit=limit, status=status, source=source)
+    return [LeadOut.model_validate(item) for item in items]
+
+
+@router.post("/leads", response_model=LeadOut, dependencies=[Depends(require_crm_token)])
+async def api_create_lead(
+    payload: LeadCreate,
+    session: AsyncSession = Depends(get_session),
+) -> LeadOut:
+    lead = await lead_service.create_lead(session, payload)
+    return LeadOut.model_validate(lead)
+
+
+@router.get("/leads/{lead_id}", response_model=LeadOut, dependencies=[Depends(require_crm_token)])
+async def api_get_lead(lead_id: int, session: AsyncSession = Depends(get_session)) -> LeadOut:
+    lead = await lead_service.get_lead(session, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Лид не найден")
+    return LeadOut.model_validate(lead)
+
+
+@router.patch("/leads/{lead_id}", response_model=LeadOut, dependencies=[Depends(require_crm_token)])
+async def api_patch_lead(
+    lead_id: int,
+    payload: LeadUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> LeadOut:
+    lead = await lead_service.get_lead(session, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Лид не найден")
+    lead = await lead_service.update_lead(session, lead, payload)
+    return LeadOut.model_validate(lead)
+
+
+@router.get("/stats", response_model=StatsOut, dependencies=[Depends(require_crm_token)])
+async def api_stats(session: AsyncSession = Depends(get_session)) -> StatsOut:
+    return StatsOut(**await lead_service.stats(session))
+
+
+@router.post("/chat", response_model=ChatOut, dependencies=[Depends(enforce_chat_limit)])
+async def api_chat(payload: ChatIn, session: AsyncSession = Depends(get_session)) -> ChatOut:
+    funnel = await funnel_service.ensure_default_funnel(session)
+    if payload.lead_id:
+        lead = await lead_service.get_lead(session, payload.lead_id)
+        if not lead:
+            raise HTTPException(status_code=404, detail="Лид не найден")
+    elif payload.telegram_id:
+        lead = await lead_service.get_or_create_by_telegram(
+            session,
+            telegram_id=payload.telegram_id,
+            source=payload.source,
+            username=payload.telegram_username,
+            funnel_id=funnel.id,
+        )
+    else:
+        lead = await lead_service.create_lead(
+            session,
+            LeadCreate(
+                source=payload.source,
+                status="qualifying",
+                funnel_id=funnel.id,
+                stage_slug="qualify",
+            ),
+        )
+
+    ai = build_ai()
+    lead, reply, ready = await lead_service.chat_with_lead(
+        session, ai, lead=lead, message=payload.message
+    )
+    return ChatOut(
+        lead_id=lead.id,
+        reply=reply,
+        status=lead.status,
+        ready_for_handoff=ready,
+        score=lead.score,
+    )
