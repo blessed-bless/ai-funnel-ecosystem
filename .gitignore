@@ -6,7 +6,10 @@ __pycache__/
 .mypy_cache/
 .env
 *.db
+*.db-shm
+*.db-wal
 data/*.db
+data/*.db-*
 .DS_Store
 dist/
 build/
