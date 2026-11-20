@@ -39,7 +39,9 @@ async def require_crm_or_jwt(
         subject = str(payload.get("sub") or "")
         role = str(payload.get("role") or "admin")
         if not subject:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Пустой subject в JWT")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Пустой subject в JWT"
+            )
         return AuthContext(actor=subject, method="jwt", role=role)
 
     raise HTTPException(
@@ -48,7 +50,7 @@ async def require_crm_or_jwt(
     )
 
 
-# Совместимость со старыми импортами
+# Alias kept for older imports
 async def require_crm_token(
     auth: AuthContext = Depends(require_crm_or_jwt),
 ) -> AuthContext:

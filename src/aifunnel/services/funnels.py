@@ -56,7 +56,9 @@ async def ensure_default_funnel(session: AsyncSession) -> Funnel:
 
 
 async def list_funnels(session: AsyncSession) -> list[Funnel]:
-    result = await session.execute(select(Funnel).options(selectinload(Funnel.stages)).order_by(Funnel.id))
+    result = await session.execute(
+        select(Funnel).options(selectinload(Funnel.stages)).order_by(Funnel.id)
+    )
     return list(result.scalars().all())
 
 
@@ -68,7 +70,9 @@ async def get_by_slug(session: AsyncSession, slug: str) -> Funnel | None:
 
 
 async def create_funnel(session: AsyncSession, payload: FunnelCreate) -> Funnel:
-    funnel = Funnel(slug=payload.slug, title=payload.title, description=payload.description, is_active=1)
+    funnel = Funnel(
+        slug=payload.slug, title=payload.title, description=payload.description, is_active=1
+    )
     session.add(funnel)
     await session.flush()
     for slug, title, position in DEFAULT_STAGES:

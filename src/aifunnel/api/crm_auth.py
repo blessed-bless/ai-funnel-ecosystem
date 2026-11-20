@@ -10,7 +10,7 @@ from aifunnel.services import admins as admin_service
 
 
 class CrmLoginRequired(Exception):
-    """HTML CRM требует логин — ловится exception handler'ом."""
+    """HTML CRM needs login; caught by the exception handler."""
 
 
 async def require_crm_page(

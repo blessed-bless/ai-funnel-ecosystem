@@ -14,7 +14,7 @@ class RateLimiter(Protocol):
 
 
 class SlidingWindowRateLimiter:
-    """In-memory limiter — один процесс."""
+    """In-memory limiter for a single process."""
 
     def __init__(self, limit: int, window_seconds: float) -> None:
         self.limit = max(1, limit)
@@ -37,9 +37,11 @@ class SlidingWindowRateLimiter:
 
 
 class RedisSlidingWindowRateLimiter:
-    """Общий лимит на несколько реплик через Redis ZSET."""
+    """Shared limit across replicas via a Redis ZSET."""
 
-    def __init__(self, redis_client, limit: int, window_seconds: float, *, prefix: str = "rl") -> None:
+    def __init__(
+        self, redis_client, limit: int, window_seconds: float, *, prefix: str = "rl"
+    ) -> None:
         self._redis = redis_client
         self.limit = max(1, limit)
         self.window = max(1.0, window_seconds)

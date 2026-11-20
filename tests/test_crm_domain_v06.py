@@ -1,7 +1,6 @@
 import pytest
 from httpx import AsyncClient
 
-
 HEADERS = {"X-CRM-Token": "test-token-strong"}
 
 

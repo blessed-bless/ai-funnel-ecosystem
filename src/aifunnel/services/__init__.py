@@ -1,1 +1,1 @@
-"""Доменная логика воронки и CRM."""
+"""Funnel and CRM domain services."""

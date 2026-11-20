@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -31,7 +31,7 @@ async def enqueue(
 
 
 async def claim_pending(session: AsyncSession, limit: int = 20) -> list[OutboxJob]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     base = (
         select(OutboxJob)
         .where(OutboxJob.status == "pending", OutboxJob.available_at <= now)
@@ -56,12 +56,14 @@ async def mark_done(session: AsyncSession, job: OutboxJob) -> None:
     await session.commit()
 
 
-async def mark_failed(session: AsyncSession, job: OutboxJob, error: str, *, retry: bool = True) -> None:
+async def mark_failed(
+    session: AsyncSession, job: OutboxJob, error: str, *, retry: bool = True
+) -> None:
     job.last_error = error[:2000]
     if retry and job.attempts < 5:
-        delay = min(300, 2 ** job.attempts)
+        delay = min(300, 2**job.attempts)
         job.status = "pending"
-        job.available_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
+        job.available_at = datetime.now(UTC) + timedelta(seconds=delay)
     else:
         job.status = "failed"
     await session.commit()

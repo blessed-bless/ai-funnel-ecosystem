@@ -59,8 +59,7 @@ class Settings(BaseSettings):
     ai_circuit_failures: int = 5
     ai_circuit_recovery_seconds: float = 45.0
     ai_fallback_reply: str = (
-        "Сейчас модель недоступна. Оставь телефон и кратко задачу — "
-        "менеджер свяжется вручную."
+        "Сейчас модель недоступна. Оставь телефон и кратко задачу — менеджер свяжется вручную."
     )
 
     funnel_default_source: str = "direct"
@@ -88,6 +87,10 @@ def get_settings() -> Settings:
         raise RuntimeError("В production нельзя оставлять дефолтный CRM_API_TOKEN")
     if settings.is_production and settings.jwt_secret.startswith("dev-"):
         raise RuntimeError("В production нельзя оставлять дефолтный JWT_SECRET")
-    if settings.is_production and settings.admin_password in {"admin-change-me", "admin", "password"}:
+    if settings.is_production and settings.admin_password in {
+        "admin-change-me",
+        "admin",
+        "password",
+    }:
         raise RuntimeError("В production задай нормальный ADMIN_PASSWORD")
     return settings

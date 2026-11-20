@@ -4,13 +4,15 @@ from aifunnel.ai.base import AIProvider, ChatTurn
 
 
 class MockAIProvider(AIProvider):
-    """Детерминированный консультант без внешних API — для локальной разработки и CI."""
+    """Deterministic consultant with no external API — local dev and CI."""
 
     async def reply(self, history: list[ChatTurn], user_message: str) -> str:
         text = user_message.strip()
         lower = text.lower()
         phone = _extract_phone(text)
-        asked_phone = any("телефон" in (t.content or "").lower() for t in history if t.role == "assistant")
+        asked_phone = any(
+            "телефон" in (t.content or "").lower() for t in history if t.role == "assistant"
+        )
         asked_need = any(
             "задач" in (t.content or "").lower() or "что нужно" in (t.content or "").lower()
             for t in history
@@ -37,8 +39,7 @@ class MockAIProvider(AIProvider):
 
         if not asked_phone:
             return (
-                "Записал. Оставь номер телефона в формате +7… — "
-                "менеджер свяжется и уточнит детали."
+                "Записал. Оставь номер телефона в формате +7… — менеджер свяжется и уточнит детали."
             )
 
         return "Ок. Напиши телефон или коротко уточни задачу — оформлю заявку."

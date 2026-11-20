@@ -19,7 +19,7 @@ async def with_retries(
     for attempt in range(1, max(1, attempts) + 1):
         try:
             return await fn()
-        except exceptions as exc:  # noqa: PERF203 — явный retry loop
+        except exceptions as exc:  # noqa: PERF203 — explicit retry loop
             last = exc
             if attempt >= attempts:
                 break

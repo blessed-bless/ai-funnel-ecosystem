@@ -1,7 +1,7 @@
 import csv
 import io
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,9 +36,17 @@ async def create_lead(session: AsyncSession, payload: LeadCreate) -> Lead:
     if data["phone_normalized"]:
         existing = await find_by_phone(session, data["phone_normalized"], include_deleted=False)
         if existing:
-            # dedupe: обогащаем существующий лид вместо дубля
+            # Dedupe: enrich the existing lead instead of inserting a duplicate
             merged = False
-            for key in ("name", "email", "need", "budget_note", "telegram_id", "telegram_username", "tags"):
+            for key in (
+                "name",
+                "email",
+                "need",
+                "budget_note",
+                "telegram_id",
+                "telegram_username",
+                "tags",
+            ):
                 val = data.get(key)
                 if val and not getattr(existing, key):
                     setattr(existing, key, val)
@@ -96,7 +104,9 @@ async def find_by_phone(
     return result.scalar_one_or_none()
 
 
-async def get_lead(session: AsyncSession, lead_id: int, *, include_deleted: bool = False) -> Lead | None:
+async def get_lead(
+    session: AsyncSession, lead_id: int, *, include_deleted: bool = False
+) -> Lead | None:
     lead = await session.get(Lead, lead_id)
     if lead is None:
         return None
@@ -117,7 +127,9 @@ async def list_leads(
     manager_id: int | None = None,
     include_deleted: bool = False,
 ) -> list[Lead]:
-    query = select(Lead).order_by(Lead.id.desc()).offset(max(offset, 0)).limit(min(max(limit, 1), 500))
+    query = (
+        select(Lead).order_by(Lead.id.desc()).offset(max(offset, 0)).limit(min(max(limit, 1), 500))
+    )
     if not include_deleted:
         query = query.where(_active_leads())
     if status:
@@ -216,7 +228,7 @@ async def update_lead(
 
 
 async def soft_delete(session: AsyncSession, lead: Lead, *, actor: str = "system") -> Lead:
-    lead.deleted_at = datetime.now(timezone.utc)
+    lead.deleted_at = datetime.now(UTC)
     await activities.add_activity(
         session,
         lead_id=lead.id,
@@ -262,7 +274,9 @@ async def bulk_update_status(
             failed.append(f"{lead_id}: не найден")
             continue
         try:
-            await update_lead(session, lead, LeadUpdate(status=status, stage_slug=status), actor=actor)
+            await update_lead(
+                session, lead, LeadUpdate(status=status, stage_slug=status), actor=actor
+            )
             updated += 1
         except ValueError as exc:
             failed.append(f"{lead_id}: {exc}")
@@ -417,7 +431,11 @@ async def chat_with_lead(
     lead.score = score_lead(lead)
     ready = bool(lead.phone and (lead.need or lead.summary))
     enqueue_ready = False
-    if ready and lead.status not in {LeadStatus.HANDED.value, LeadStatus.CLOSED.value, LeadStatus.SPAM.value}:
+    if ready and lead.status not in {
+        LeadStatus.HANDED.value,
+        LeadStatus.CLOSED.value,
+        LeadStatus.SPAM.value,
+    }:
         if lead.status != LeadStatus.READY.value:
             enqueue_ready = True
         lead.status = LeadStatus.READY.value
@@ -470,9 +488,12 @@ async def stats(session: AsyncSession) -> dict[str, int]:
         .where(_active_leads())
     )
     total, ready, qualifying = lead_row.one()
-    pending = await session.scalar(
-        select(func.count()).select_from(OutboxJob).where(OutboxJob.status == "pending")
-    ) or 0
+    pending = (
+        await session.scalar(
+            select(func.count()).select_from(OutboxJob).where(OutboxJob.status == "pending")
+        )
+        or 0
+    )
     result = {
         "leads_total": int(total or 0),
         "leads_ready": int(ready or 0),
@@ -571,7 +592,9 @@ def export_leads_csv(leads: list[Lead]) -> str:
     return buf.getvalue()
 
 
-async def import_leads_csv(session: AsyncSession, content: str, *, source: str = "csv_import") -> dict:
+async def import_leads_csv(
+    session: AsyncSession, content: str, *, source: str = "csv_import"
+) -> dict:
     reader = csv.DictReader(io.StringIO(content))
     created = 0
     merged = 0

@@ -2,10 +2,10 @@ from fastapi import APIRouter
 from sqlalchemy import text
 
 from aifunnel import __version__
+from aifunnel import db as dbmod
 from aifunnel.ai import build_ai
 from aifunnel.ai.resilient import ResilientAIProvider
 from aifunnel.config import get_settings
-from aifunnel import db as dbmod
 from aifunnel.schemas import HealthOut, ReadyOut
 from aifunnel.security.redis_client import get_redis
 

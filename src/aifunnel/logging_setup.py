@@ -15,8 +15,8 @@ class _JsonishFormatter(logging.Formatter):
             base["request_id"] = request_id
         if record.exc_info:
             base["exc"] = self.formatException(record.exc_info)
-        # Одна строка — удобно грепать в journald/docker logs
-        parts = [f'{k}={_quote(v)}' for k, v in base.items()]
+        # Single line — easy to grep in journald/docker logs
+        parts = [f"{k}={_quote(v)}" for k, v in base.items()]
         return " ".join(parts)
 
 
