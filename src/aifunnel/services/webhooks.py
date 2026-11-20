@@ -55,7 +55,7 @@ async def post_webhook(
     body = json.dumps(body_obj, ensure_ascii=False).encode("utf-8")
 
     if not url:
-        # Не заглушка «просто лог»: фиксируем локальную доставку в БД
+        # Not a silent no-op: persist delivery locally when WEBHOOK_URL is empty
         await _store_delivery(
             session,
             event=event,

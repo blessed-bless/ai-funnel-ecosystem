@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 
@@ -6,7 +6,7 @@ from aifunnel.config import Settings
 
 
 def create_access_token(settings: Settings, *, subject: str, role: str = "admin") -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": subject,
         "role": role,

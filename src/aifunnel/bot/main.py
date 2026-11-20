@@ -50,8 +50,7 @@ async def handle_start(message: Message, command: CommandObject) -> None:
 async def handle_manager(message: Message) -> None:
     url = get_settings().telegram_manager_url
     await message.answer(
-        f"Менеджер: {url}\n"
-        "Можешь продолжить здесь — оформлю заявку и положу в CRM."
+        f"Менеджер: {url}\nМожешь продолжить здесь — оформлю заявку и положу в CRM."
     )
 
 
@@ -118,9 +117,7 @@ async def handle_text(message: Message) -> None:
             funnel_id=funnel.id,
         )
         ai = build_ai()
-        lead, reply, ready = await lead_service.chat_with_lead(
-            session, ai, lead=lead, message=text
-        )
+        lead, reply, ready = await lead_service.chat_with_lead(session, ai, lead=lead, message=text)
 
     suffix = ""
     if ready:

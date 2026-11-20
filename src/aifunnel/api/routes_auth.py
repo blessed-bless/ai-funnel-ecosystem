@@ -38,7 +38,9 @@ async def login(
     user = await admin_service.authenticate(session, payload.username, payload.password)
     if not user:
         metrics.inc("aifunnel_auth_failures_total", labels={"reason": "bad_credentials"})
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль"
+        )
     token = create_access_token(settings, subject=user.username, role=user.role)
     metrics.inc("aifunnel_auth_logins_total")
     return LoginOut(access_token=token, expires_minutes=settings.jwt_expire_minutes)

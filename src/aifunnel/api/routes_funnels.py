@@ -6,7 +6,9 @@ from aifunnel.db import get_session
 from aifunnel.schemas import FunnelCreate, FunnelOut
 from aifunnel.services import funnels as funnel_service
 
-router = APIRouter(prefix="/api/funnels", tags=["funnels"], dependencies=[Depends(require_crm_token)])
+router = APIRouter(
+    prefix="/api/funnels", tags=["funnels"], dependencies=[Depends(require_crm_token)]
+)
 
 
 @router.get("", response_model=list[FunnelOut])

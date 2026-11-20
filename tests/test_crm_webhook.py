@@ -44,7 +44,9 @@ async def test_crm_html_requires_login(tmp_path, monkeypatch):
     from aifunnel.api.app import app
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test", follow_redirects=False) as client:
+    async with AsyncClient(
+        transport=transport, base_url="http://test", follow_redirects=False
+    ) as client:
         denied = await client.get("/crm")
         assert denied.status_code in {303, 307}
         assert "/crm/login" in denied.headers.get("location", "")
@@ -68,10 +70,11 @@ async def test_crm_html_requires_login(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_outbox_webhook_local_store(client: AsyncClient):
+    from sqlalchemy import select
+
     from aifunnel import db as dbmod
     from aifunnel.models import WebhookDelivery
     from aifunnel.services import outbox
-    from sqlalchemy import select
 
     async with dbmod.SessionLocal() as session:
         job = await outbox.enqueue(

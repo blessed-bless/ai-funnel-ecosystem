@@ -26,7 +26,7 @@ async def telegram_manager_about_lead(
         manager = await session.get(Manager, lead.assigned_manager_id)
         chat_id = manager.telegram_chat_id if manager else None
     if not chat_id:
-        # fallback: первый активный менеджер с chat_id в workspace
+        # Fallback: first active manager in workspace that has a chat_id
         result = await session.execute(
             select(Manager)
             .where(Manager.is_active == 1, Manager.telegram_chat_id.is_not(None))
@@ -57,5 +57,7 @@ async def telegram_manager_about_lead(
     async with httpx.AsyncClient(timeout=12.0) as client:
         response = await client.post(url, json={"chat_id": chat_id, "text": text})
         if response.status_code >= 400:
-            raise RuntimeError(f"telegram notify HTTP {response.status_code}: {response.text[:300]}")
+            raise RuntimeError(
+                f"telegram notify HTTP {response.status_code}: {response.text[:300]}"
+            )
     logger.info("telegram notify ok lead_id=%s chat_id=%s", lead_id, chat_id)

@@ -12,7 +12,7 @@ class Base(DeclarativeBase):
 
 
 def _configure_sqlite(sync_conn) -> None:
-    # Скорость и параллельные читатели на одном файле
+    # WAL: faster commits and concurrent readers on one SQLite file
     sync_conn.execute(text("PRAGMA journal_mode=WAL"))
     sync_conn.execute(text("PRAGMA synchronous=NORMAL"))
     sync_conn.execute(text("PRAGMA temp_store=MEMORY"))
@@ -45,12 +45,12 @@ SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSe
 
 
 async def dispose_engine() -> None:
-    """Закрывает пул соединений — иначе aiosqlite ругается после закрытия event loop."""
+    """Dispose the pool so aiosqlite does not warn after the event loop closes."""
     await engine.dispose()
 
 
 def rebind_engine(url: str) -> None:
-    """Пересоздаёт engine/sessionmaker — нужно тестам и hot-reload конфига."""
+    """Rebuild engine/sessionmaker for tests and config hot-reload."""
     global engine, SessionLocal
     engine = _make_engine(url)
     SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
@@ -64,7 +64,7 @@ async def _sqlite_add_column_if_missing(conn, table: str, column: str, ddl: str)
 
 
 async def apply_lightweight_migrations() -> None:
-    """Минимальные миграции для SQLite без alembic на старте."""
+    """Lightweight SQLite column adds when Alembic has not run yet."""
     url = str(engine.url)
     if not url.startswith("sqlite"):
         return
@@ -73,18 +73,24 @@ async def apply_lightweight_migrations() -> None:
         try:
             await _sqlite_add_column_if_missing(conn, "leads", "email", "email VARCHAR(160)")
             await _sqlite_add_column_if_missing(conn, "leads", "funnel_id", "funnel_id INTEGER")
-            await _sqlite_add_column_if_missing(conn, "leads", "stage_slug", "stage_slug VARCHAR(64)")
+            await _sqlite_add_column_if_missing(
+                conn, "leads", "stage_slug", "stage_slug VARCHAR(64)"
+            )
             await _sqlite_add_column_if_missing(conn, "leads", "score", "score INTEGER DEFAULT 0")
             await _sqlite_add_column_if_missing(conn, "leads", "tags", "tags VARCHAR(255)")
             await _sqlite_add_column_if_missing(
                 conn, "leads", "phone_normalized", "phone_normalized VARCHAR(32)"
             )
-            await _sqlite_add_column_if_missing(conn, "leads", "workspace_id", "workspace_id INTEGER")
+            await _sqlite_add_column_if_missing(
+                conn, "leads", "workspace_id", "workspace_id INTEGER"
+            )
             await _sqlite_add_column_if_missing(
                 conn, "leads", "assigned_manager_id", "assigned_manager_id INTEGER"
             )
             await _sqlite_add_column_if_missing(conn, "leads", "deleted_at", "deleted_at DATETIME")
-            await _sqlite_add_column_if_missing(conn, "funnels", "workspace_id", "workspace_id INTEGER")
+            await _sqlite_add_column_if_missing(
+                conn, "funnels", "workspace_id", "workspace_id INTEGER"
+            )
         except Exception:
             pass
 

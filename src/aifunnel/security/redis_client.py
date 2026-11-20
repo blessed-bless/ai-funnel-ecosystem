@@ -7,7 +7,7 @@ _redis_url: str | None = None
 
 
 async def get_redis(url: str | None):
-    """Ленивый Redis. None url → None клиент."""
+    """Lazy Redis client. Empty url → None."""
     global _redis, _redis_url
     if not url:
         return None

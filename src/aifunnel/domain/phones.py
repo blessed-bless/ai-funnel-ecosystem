@@ -1,11 +1,10 @@
 import re
 
-
 _DIGITS = re.compile(r"\D+")
 
 
 def normalize_phone(raw: str | None) -> str | None:
-    """Нормализация RU/международных номеров к виду 7XXXXXXXXXX когда возможно."""
+    """Normalize RU/intl phones to 7XXXXXXXXXX when possible."""
     if not raw:
         return None
     digits = _DIGITS.sub("", raw)

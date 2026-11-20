@@ -1,1 +1,1 @@
-"""Фоновый воркер outbox."""
+"""Background outbox worker."""

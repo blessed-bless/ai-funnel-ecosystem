@@ -1,66 +1,73 @@
 # AI Funnel Ecosystem
 
-Воронка лидов → Telegram AI-бот → mini-CRM → outbox-воркер.
+Воронка лидов → Telegram AI-бот → mini-CRM с outbox-воркером. Для агентств и соло, кому нужен один стек от хита на лендинге до менеджера в Telegram.
 
-Стек: Python 3.11+, FastAPI, SQLAlchemy async (SQLite), aiogram 3, mock/OpenAI-compatible AI с retry и circuit breaker.
+![CRM](docs/screenshots/crm.png)
 
 ## Возможности
 
-- Лендинг с hit в воронку (`/api/funnel/hit`)
-- Диалог `/api/chat` и Telegram-бот с квалификацией лида
-- Workspace + managers (`/api/managers`), назначение менеджера на лид
-- Soft-delete / restore, dedupe по нормализованному телефону
-- Правила переходов статуса, timeline (`/api/leads/{id}/activities`)
-- CRM UI: фильтры, заметки, timeline на карточке
-- REST: search/tag/manager, notes, CSV import/export, bulk status, messages, stats, funnels
-- Outbox: webhook + notify менеджеру в Telegram
-- Performance: SQLite WAL, TTL-кэш stats/funnel, batch messages
-- Auth: `X-CRM-Token` или JWT; HTML CRM за cookie-логином
-- Security: rate-limit (memory/Redis), headers, request-id, CORS, pbkdf2
-- Reliability: `/health` + `/ready`, AI retries/fallback, Alembic
-- Metrics: `/metrics` (Prometheus text)
+- Лендинг с hit в воронку и диалог `/api/chat`
+- Telegram-бот с квалификацией лида и уведомлением менеджеру
+- Mini-CRM: фильтры, заметки, timeline, soft-delete, CSV
+- Workspace + managers, dedupe по телефону
+- Outbox: webhook + Telegram notify; AI mock или OpenAI-compatible
+- Auth (`X-CRM-Token` / JWT), rate-limit, `/health` + `/ready`, `/metrics`
 
+## Архитектура
+
+```mermaid
+flowchart LR
+  landing[Landing hit] --> api[FastAPI]
+  bot[Telegram bot] --> api
+  api --> db[(SQLite)]
+  api --> outbox[Outbox]
+  outbox --> worker[Worker]
+  worker --> webhook[Webhook]
+  worker --> tg[Manager Telegram]
+  api --> crm[HTML CRM]
 ```
-landing → bot/chat → leads + audit → outbox worker → CRM
-```
+
+## Стек
+
+Python 3.12 · FastAPI · SQLAlchemy async · SQLite · aiogram 3 · Alembic · Redis (optional) · Docker
 
 ## Запуск
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
+git clone https://github.com/blessed-bless/ai-funnel-ecosystem.git
+cd ai-funnel-ecosystem
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-copy .env.example .env
-mkdir data
+cp .env.example .env && mkdir -p data
 aifunnel-api
 ```
 
-Отдельно:
+CRM: http://127.0.0.1:8080/crm/login · логин из `.env.example`: `admin` / `admin-change-me`.
 
-```bash
-aifunnel-worker
-aifunnel-bot
-```
+Отдельно: `aifunnel-worker`, `aifunnel-bot`. Docker: `docker compose up --build api worker`.
 
-Docker:
+## Конфигурация
 
-```bash
-docker compose up --build api worker
-```
+| Переменная | Назначение |
+| --- | --- |
+| `APP_NAME` / `APP_ENV` / `LOG_LEVEL` | Имя, окружение, уровень логов |
+| `DATABASE_URL` | Async SQLAlchemy URL |
+| `API_HOST` / `API_PORT` / `API_PUBLIC_URL` | Bind и публичный URL |
+| `CORS_ORIGINS` | CORS |
+| `CRM_API_TOKEN` | Токен `X-CRM-Token` |
+| `JWT_SECRET` / `JWT_EXPIRE_MINUTES` | JWT для CRM |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Логин HTML CRM |
+| `RATE_LIMIT_PER_MINUTE` / `CHAT_RATE_LIMIT_PER_MINUTE` | Лимиты |
+| `REDIS_URL` | Общий rate-limit (пусто → memory) |
+| `WEBHOOK_URL` / `WEBHOOK_SECRET` / `WEBHOOK_TIMEOUT_SECONDS` | Исходящие webhook |
+| `CRM_COOKIE_NAME` / `CRM_PROTECT_HTML` | Cookie-сессия CRM |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_BOT_USERNAME` | Бот |
+| `TELEGRAM_MANAGER_URL` / `TELEGRAM_MANAGER_CHAT_ID` | Notify менеджеру |
+| `AI_PROVIDER` / `AI_API_KEY` / `AI_BASE_URL` / `AI_MODEL` | AI |
+| `AI_MAX_RETRIES` / `AI_CIRCUIT_*` | Retry / circuit breaker |
+| `FUNNEL_DEFAULT_SOURCE` / `READY_REQUIRE_DB` | Funnel / readiness |
 
-## Миграции
-
-```bash
-alembic upgrade head
-```
-
-На старте API также делает `create_all` + лёгкий ALTER для старых SQLite.
-
-## Тесты
-
-```bash
-pytest -q
-```
+Полный список — в `.env.example`.
 
 ## Автор
 

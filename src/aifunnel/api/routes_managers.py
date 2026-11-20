@@ -6,7 +6,9 @@ from aifunnel.db import get_session
 from aifunnel.schemas import ManagerOut, ManagerUpsert
 from aifunnel.services import workspace as workspace_service
 
-router = APIRouter(prefix="/api/managers", tags=["managers"], dependencies=[Depends(require_crm_token)])
+router = APIRouter(
+    prefix="/api/managers", tags=["managers"], dependencies=[Depends(require_crm_token)]
+)
 
 
 @router.get("", response_model=list[ManagerOut])

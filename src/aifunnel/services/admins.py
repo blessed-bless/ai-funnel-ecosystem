@@ -7,7 +7,9 @@ from aifunnel.security.passwords import hash_password, verify_password
 
 
 async def ensure_bootstrap_admin(session: AsyncSession, settings: Settings) -> AdminUser:
-    result = await session.execute(select(AdminUser).where(AdminUser.username == settings.admin_username))
+    result = await session.execute(
+        select(AdminUser).where(AdminUser.username == settings.admin_username)
+    )
     user = result.scalar_one_or_none()
     if user:
         return user
