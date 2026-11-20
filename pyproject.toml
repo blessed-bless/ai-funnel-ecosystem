@@ -49,6 +49,9 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+# B008: FastAPI Depends/Query/Header in defaults is the framework pattern
+# UP046/UP047: keep existing Generic[T] style; PEP 695 rewrite is out of scope
+ignore = ["B008", "UP046", "UP047"]
 
 [tool.ruff.format]
 quote-style = "double"
